@@ -1,5 +1,10 @@
 [
   "index",
+  {
+    "type": "file",
+    "name": "metro-react-native",
+    "label": "Module Federation for React Native"
+  },
   "announcement",
   "hoisted-runtime",
   "error-load-remote",

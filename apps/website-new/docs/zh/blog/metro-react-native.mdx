@@ -1,0 +1,214 @@
+---
+title: 使用 Metro 在 React Native 中实现 Module Federation
+---
+
+# 使用 Metro 在 React Native 中实现 Module Federation
+
+> 2026 年 7 月 4 日
+
+Module Federation 长期帮助 Web 团队将大型前端拆分为可独立部署的应用。借助 `@module-federation/metro`，同样的架构模式现已扩展到 **React Native** —— 宿主应用可以在运行时从远程迷你应用加载页面和组件，共享 `react`、`react-native` 等依赖，并在无需重新构建整个安装包的情况下交付新功能。
+
+本文介绍 Metro 模块联邦的价值、各组件如何协作，以及一套可直接套用到项目中的实践配置。
+
+## 为什么要在移动端使用 Module Federation？
+
+大型 React Native 代码库往往面临与 Web 单体应用类似的压力：
+
+- 多个团队向同一个应用商店版本提交代码
+- 功能开关和 OTA 更新仍需要完整重新构建
+- 内部包之间依赖重复
+- 业务域之间耦合紧密
+
+Module Federation 通过让**宿主应用**通过 HTTP 消费**远程应用**暴露的模块来解决这些问题，使用与 Web 联邦相同的 Manifest 驱动运行时。
+
+典型使用场景包括：
+
+- **超级应用架构** —— 壳应用从不同团队加载功能模块
+- **独立部署** —— 发布迷你应用 Bundle，无需重新提交宿主应用到商店
+- **共享 UI 库** —— 从专用远程暴露设计系统组件
+- **嵌套联邦** —— 远程应用本身也可以消费其他远程模块
+
+> **注意：** Metro Module Federation 目前仍处于**实验阶段**。部分仅适用于 Web 的联邦能力尚未提供，使用高度自定义 Metro 配置的项目可能需要额外适配。请参阅 [Metro 集成指南](/integrations/bundler/metro.html) 了解最新兼容性说明。
+
+## 包生态
+
+React Native 联邦由少量核心包组成：
+
+| 包名 | 用途 |
+| --- | --- |
+| `@module-federation/metro` | 通过 `withModuleFederation` 实现 Metro 核心集成 |
+| `@module-federation/metro-plugin-rnc-cli` | React Native CLI 命令（`bundle-mf-host`、`bundle-mf-remote`） |
+| `@module-federation/metro-plugin-rock` | [Rock](https://www.rockjs.dev/) 打包器集成 |
+
+根据工具链安装核心包及对应插件：
+
+```shell
+pnpm add @module-federation/metro
+pnpm add @module-federation/metro-plugin-rnc-cli   # React Native CLI
+# 或
+pnpm add @module-federation/metro-plugin-rock      # Rock 项目
+```
+
+## 快速上手：宿主与远程
+
+### 1. 配置远程应用（迷你应用）
+
+远程应用通过 `exposes` **暴露**模块供其他应用导入。使用 `withModuleFederation` 包装 Metro 配置：
+
+```javascript
+const { withModuleFederation } = require('@module-federation/metro');
+const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
+
+module.exports = withModuleFederation(
+  mergeConfig(getDefaultConfig(__dirname), {}),
+  {
+    name: 'MiniApp',
+    exposes: {
+      './Screen': './src/Screen.tsx',
+    },
+    shared: {
+      react: { singleton: true, eager: false, import: false },
+      'react-native': { singleton: true, eager: false, import: false },
+    },
+  },
+);
+```
+
+远程应用通常在共享依赖上设置 `import: false`，由宿主在运行时提供这些库。
+
+### 2. 配置宿主应用
+
+宿主通过 Manifest URL **消费**远程模块：
+
+```javascript
+module.exports = withModuleFederation(
+  mergeConfig(getDefaultConfig(__dirname), {}),
+  {
+    name: 'HostApp',
+    remotes: {
+      miniApp: 'miniApp@http://localhost:8082/mf-manifest.json',
+    },
+    shared: {
+      react: { singleton: true, eager: true },
+      'react-native': { singleton: true, eager: true },
+    },
+  },
+);
+```
+
+宿主应用应在核心共享依赖上设置 `eager: true`，确保在任何远程模块加载前这些库已可用。
+
+### 3. 添加异步启动边界
+
+Module Federation 异步初始化。使用 `withAsyncStartup` 包装应用入口，确保运行时就绪后再渲染 React：
+
+```javascript
+import { withAsyncStartup } from '@module-federation/metro/bootstrap';
+import { AppRegistry } from 'react-native';
+
+AppRegistry.registerComponent(
+  'HostApp',
+  withAsyncStartup(
+    () => require('./src/App'),
+    () => require('./src/Fallback'), // 可选的加载界面
+  ),
+);
+```
+
+### 4. 在应用中导入远程模块
+
+配置完成后，远程模块可以像本地模块一样导入 —— 使用 `React.lazy` 实现按需加载：
+
+```javascript
+import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
+
+const RemoteScreen = React.lazy(() => import('miniApp/Screen'));
+
+export default function App() {
+  return (
+    <React.Suspense fallback={<ActivityIndicator />}>
+      <RemoteScreen />
+    </React.Suspense>
+  );
+}
+```
+
+## 生产环境打包
+
+React Native CLI 插件提供联邦感知的打包命令：
+
+```shell
+# 打包宿主应用（消费远程模块）
+react-native bundle-mf-host --entry-file index.js --platform ios
+
+# 打包远程应用（暴露模块）
+react-native bundle-mf-remote --platform android
+```
+
+两个命令均支持与标准 `react-native bundle` 相同的选项。将远程 Bundle 部署到 CDN 或静态服务器，然后将宿主的 `remotes` 配置指向已发布的 `mf-manifest.json` URL。
+
+## 共享依赖：宿主与远程
+
+正确配置共享依赖是稳定联邦方案的关键：
+
+| 配置项 | 宿主 | 远程 |
+| --- | --- | --- |
+| `react` / `react-native` | `eager: true` | `eager: false`，`import: false` |
+| `singleton` | `true` | `true` |
+| `shareStrategy` | `loaded-first`（常见） | `version-first`（常见） |
+
+宿主预先加载共享库。远程声明这些依赖但不打包自己的副本 —— 运行时在加载时去重。
+
+## 嵌套联邦
+
+远程应用本身也可以消费其他远程模块。在[本仓库的 Metro 示例应用](https://github.com/module-federation/core/tree/main/apps/metro-example-host)中，宿主同时加载直接远程和第一个远程所依赖的嵌套远程：
+
+```javascript
+// 宿主 metro.config.js
+remotes: {
+  mini: 'mini@http://localhost:8082/mf-manifest.json',
+  nestedMini: 'nestedMini@http://localhost:8083/mf-manifest.json',
+},
+```
+
+```javascript
+// 宿主 App.tsx —— 直接导入嵌套远程
+import NestedMiniInfo from 'nestedMini/nestedMiniInfo';
+```
+
+该模式支持深层功能树，无需将所有远程模块扁平化到宿主配置中。
+
+## 运行时插件与错误处理
+
+Metro 联邦支持 `runtimePlugins` 自定义加载行为 —— 重试、日志或降级模块。结合[远程模块渲染错误处理方案](/blog/error-load-remote.html)中的模式，可提升生产环境稳定性：
+
+- **网络层** —— `@module-federation/retry-plugin` 处理 Manifest/Chunk 请求失败
+- **加载层** —— `errorLoadRemote` 钩子提供降级组件
+- **渲染层** —— 在联邦 UI 外包裹 React `ErrorBoundary`
+
+## Rock 集成
+
+如果项目使用 [Rock](https://www.rockjs.dev/) 而非 React Native CLI，在 `rock.config.mjs` 中添加联邦插件：
+
+```javascript
+import { pluginMetroModuleFederation } from '@module-federation/metro-plugin-rock';
+import { pluginMetro } from '@rock-js/plugin-metro';
+
+export default {
+  bundler: pluginMetro(),
+  plugins: [pluginMetroModuleFederation()],
+};
+```
+
+## 下一步
+
+Metro Module Federation 将 MF 2.0 运行时 —— Manifest、共享依赖协商和运行时插件 —— 带到了移动端。随着集成逐渐成熟，预计将与 Web 端实现更紧密的能力对齐，例如共享依赖 Tree Shaking 和增强的 DevTools 支持。
+
+深入了解：
+
+- [Metro 集成指南](/integrations/bundler/metro.html) —— 完整 API 参考与配置选项
+- [示例应用](https://github.com/module-federation/core/tree/main/apps/metro-example-host) —— 本仓库中可运行的宿主、迷你应用和嵌套迷你应用项目
+- [Module Federation 配置](/configure/index.html) —— 适用于 Web 与移动端的通用概念
+
+如果你正在构建超级应用或拆分大型 React Native 代码库，Metro 联邦值得从现在开始探索 —— 在充分了解实验性限制的前提下，从第一天就建立稳健的共享依赖策略。
