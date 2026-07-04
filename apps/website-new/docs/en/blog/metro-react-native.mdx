@@ -1,0 +1,214 @@
+---
+title: Module Federation for React Native with Metro
+---
+
+# Module Federation for React Native with Metro
+
+> July 4, 2026
+
+Module Federation has long helped web teams split large frontends into independently deployable applications. With `@module-federation/metro`, the same architectural model is now available for **React Native** — enabling host apps to load screens and components from remote mini apps at runtime, share dependencies like `react` and `react-native`, and ship features without rebuilding the entire binary.
+
+This post walks through why Metro federation matters, how the pieces fit together, and a practical setup you can adapt to your own project.
+
+## Why Module Federation on Mobile?
+
+Large React Native codebases often face the same pressures as web monoliths:
+
+- Multiple teams shipping into one app store release
+- Feature flags and over-the-air updates that still require full rebuilds
+- Duplicated dependencies across internal packages
+- Tight coupling between business domains
+
+Module Federation addresses these by letting a **host application** consume modules exposed by **remote applications** over HTTP, using the same manifest-driven runtime that powers web federation.
+
+Typical use cases include:
+
+- **Super-app architecture** — a shell app loads feature modules from different teams
+- **Independent deployment** — ship a mini app's bundle without resubmitting the host to the store
+- **Shared UI libraries** — expose design-system components from a dedicated remote
+- **Nested federation** — remotes that themselves consume other remotes
+
+> **Note:** Metro Module Federation is still **experimental**. Some web-only federation features are not available yet, and projects with heavily customized Metro setups may need additional work. See the [Metro integration guide](/integrations/bundler/metro.html) for the latest compatibility notes.
+
+## The Package Ecosystem
+
+React Native federation is built from a small set of packages:
+
+| Package | Purpose |
+| --- | --- |
+| `@module-federation/metro` | Core Metro integration via `withModuleFederation` |
+| `@module-federation/metro-plugin-rnc-cli` | React Native CLI commands (`bundle-mf-host`, `bundle-mf-remote`) |
+| `@module-federation/metro-plugin-rock` | [Rock](https://www.rockjs.dev/) bundler integration |
+
+Install the core package plus the plugin that matches your toolchain:
+
+```shell
+pnpm add @module-federation/metro
+pnpm add @module-federation/metro-plugin-rnc-cli   # React Native CLI
+# or
+pnpm add @module-federation/metro-plugin-rock      # Rock projects
+```
+
+## Quick Start: Host and Remote
+
+### 1. Configure the remote (mini app)
+
+A remote **exposes** modules that other apps can import. Wrap your Metro config with `withModuleFederation`:
+
+```javascript
+const { withModuleFederation } = require('@module-federation/metro');
+const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
+
+module.exports = withModuleFederation(
+  mergeConfig(getDefaultConfig(__dirname), {}),
+  {
+    name: 'MiniApp',
+    exposes: {
+      './Screen': './src/Screen.tsx',
+    },
+    shared: {
+      react: { singleton: true, eager: false, import: false },
+      'react-native': { singleton: true, eager: false, import: false },
+    },
+  },
+);
+```
+
+Remotes typically set `import: false` on shared dependencies so the host provides them at runtime.
+
+### 2. Configure the host
+
+The host **consumes** remotes via manifest URLs:
+
+```javascript
+module.exports = withModuleFederation(
+  mergeConfig(getDefaultConfig(__dirname), {}),
+  {
+    name: 'HostApp',
+    remotes: {
+      miniApp: 'miniApp@http://localhost:8082/mf-manifest.json',
+    },
+    shared: {
+      react: { singleton: true, eager: true },
+      'react-native': { singleton: true, eager: true },
+    },
+  },
+);
+```
+
+Host apps should set `eager: true` on core shared dependencies so they are available before any remote loads.
+
+### 3. Add an async startup boundary
+
+Module Federation initializes asynchronously. Wrap your app entry with `withAsyncStartup` so the runtime is ready before React renders:
+
+```javascript
+import { withAsyncStartup } from '@module-federation/metro/bootstrap';
+import { AppRegistry } from 'react-native';
+
+AppRegistry.registerComponent(
+  'HostApp',
+  withAsyncStartup(
+    () => require('./src/App'),
+    () => require('./src/Fallback'), // optional loading screen
+  ),
+);
+```
+
+### 4. Import remote modules in your app
+
+Once configured, remote modules are imported like local ones — use `React.lazy` for on-demand loading:
+
+```javascript
+import React from 'react';
+import { ActivityIndicator, View } from 'react-native';
+
+const RemoteScreen = React.lazy(() => import('miniApp/Screen'));
+
+export default function App() {
+  return (
+    <React.Suspense fallback={<ActivityIndicator />}>
+      <RemoteScreen />
+    </React.Suspense>
+  );
+}
+```
+
+## Bundling for Production
+
+The React Native CLI plugin adds federation-aware bundle commands:
+
+```shell
+# Bundle the host (consumes remotes)
+react-native bundle-mf-host --entry-file index.js --platform ios
+
+# Bundle a remote (exposes modules)
+react-native bundle-mf-remote --platform android
+```
+
+Both commands accept the same options as the standard `react-native bundle` command. Deploy remote bundles to a CDN or static server, then point the host's `remotes` config at the published `mf-manifest.json` URL.
+
+## Shared Dependencies: Host vs Remote
+
+Getting shared dependencies right is the most important part of a stable federation setup:
+
+| Setting | Host | Remote |
+| --- | --- | --- |
+| `react` / `react-native` | `eager: true` | `eager: false`, `import: false` |
+| `singleton` | `true` | `true` |
+| `shareStrategy` | `loaded-first` (typical) | `version-first` (typical) |
+
+The host loads shared libraries upfront. Remotes declare them but do not bundle their own copies — the runtime deduplicates at load time.
+
+## Nested Federation
+
+Remotes can themselves consume other remotes. In the [metro example apps](https://github.com/module-federation/core/tree/main/apps/metro-example-host), the host loads both a direct remote and a nested remote that the first remote depends on:
+
+```javascript
+// Host metro.config.js
+remotes: {
+  mini: 'mini@http://localhost:8082/mf-manifest.json',
+  nestedMini: 'nestedMini@http://localhost:8083/mf-manifest.json',
+},
+```
+
+```javascript
+// In host App.tsx — nested remote imported directly
+import NestedMiniInfo from 'nestedMini/nestedMiniInfo';
+```
+
+This pattern supports deep feature trees without flattening all remotes into the host config.
+
+## Runtime Plugins and Error Handling
+
+Metro federation supports `runtimePlugins` for customizing load behavior — retries, logging, or fallback modules. Combine this with the patterns from [Handling Remote Module Rendering Errors](/blog/error-load-remote.html) for production resilience:
+
+- **Network layer** — `@module-federation/retry-plugin` for failed manifest/chunk requests
+- **Loading layer** — `errorLoadRemote` hook for fallback components
+- **Rendering layer** — React `ErrorBoundary` around federated UI
+
+## Rock Integration
+
+If your project uses [Rock](https://www.rockjs.dev/) instead of the React Native CLI, add the federation plugin to `rock.config.mjs`:
+
+```javascript
+import { pluginMetroModuleFederation } from '@module-federation/metro-plugin-rock';
+import { pluginMetro } from '@rock-js/plugin-metro';
+
+export default {
+  bundler: pluginMetro(),
+  plugins: [pluginMetroModuleFederation()],
+};
+```
+
+## What's Next
+
+Metro Module Federation brings the MF 2.0 runtime — manifests, shared dependency negotiation, and runtime plugins — to mobile. As the integration matures, expect closer parity with web features like shared dependency tree shaking and enhanced devtools support.
+
+To go deeper:
+
+- [Metro integration guide](/integrations/bundler/metro.html) — full API reference and configuration options
+- [Example apps](https://github.com/module-federation/core/tree/main/apps/metro-example-host) — working host, mini, and nested-mini projects in this repository
+- [Module Federation configuration](/configure/index.html) — shared concepts that apply across web and mobile
+
+If you are building a super app or splitting a large React Native codebase, Metro federation is worth exploring today — with the experimental caveat in mind and a solid shared-dependency strategy from day one.

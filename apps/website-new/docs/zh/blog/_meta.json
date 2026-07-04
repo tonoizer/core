@@ -1,5 +1,10 @@
 [
   "index",
+  {
+    "type": "file",
+    "name": "metro-react-native",
+    "label": "React Native 中的 Module Federation"
+  },
   "announcement",
   "error-load-remote",
   {
