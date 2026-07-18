@@ -71,6 +71,8 @@ export function createBaseBridgeComponent<T>({
             ? hydrateState(ssrState as BridgeJSONValue | undefined)
             : {};
 
+        if (info.signal?.aborted) return;
+
         const beforeBridgeRenderRes =
           instance?.bridgeHook?.lifecycle?.beforeBridgeRender?.emit(info) || {};
 
@@ -122,6 +124,12 @@ export function createBaseBridgeComponent<T>({
           if (!root && createRoot) {
             root = createRoot(dom, mergedRootOptions);
             rootMap.set(dom, root as any);
+          }
+
+          if (info.signal?.aborted) {
+            if (root && 'unmount' in root) root.unmount();
+            rootMap.delete(dom);
+            return;
           }
 
           if (root && 'render' in root) {
