@@ -21,4 +21,28 @@ export const EN_US = {
     'https://module-federation-assest.netlify.app/document/announcement/blog/announcement/announcement-video.mp4',
   announcementVideoPoster:
     'https://module-federation-assest.netlify.app/document/announcement/blog/announcement/announcement-video-poster.png',
+  hostShareScopeLabel: 'HostShareScope',
+  hostShareScopeType: 'Host share scope type',
+  shareScopeUnset: 'unset',
+  hostShareScopes: 'Host share scopes',
+  remoteShareScopeLabel: 'RemoteShareScope',
+  remoteShareScopeType: 'Remote share scope type',
+  remoteShareScopes: 'Remote share scopes',
+  shareScopeWarnings: 'Warnings',
+  shareScopeAlignment: 'Alignment (pseudo code)',
+  shareScopeNoAlignment: '(no alignment)',
+  shareScopeInitialized: 'Initialized Scopes',
+  hostShareScopeEmpty: 'Host shareScope is an empty array.',
+  hostShareScopeSingleItem:
+    "Host shareScope is an array with a single item. Prefer a string (e.g. 'default') unless you intentionally need array semantics.",
+  remoteShareScopeEmpty: 'Remote shareScope is an empty array.',
+  remoteShareScopeSingleItem:
+    "Remote shareScope is an array with a single item. Prefer a string (e.g. 'default') unless you intentionally need array semantics.",
+  alignedViaShareScopeObject:
+    'Aligned via the shareScope object passed to remoteEntry.init(...)',
+  loadingPlayground: 'Loading Playground...',
+  playAnnouncementVideo: 'Play announcement video',
+  typeDeclaration: 'Type declaration',
+  errorCodeLabel: 'Error Code: ',
+  copyright: 'Module Federation core team. All Rights Reserved.',
 } as const;

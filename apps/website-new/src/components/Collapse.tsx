@@ -1,9 +1,9 @@
-import { useLang } from '@rspress/core/runtime';
 import { useState } from 'react';
+import { useI18n } from '../../theme/i18n';
 import styles from './Collapse.module.scss';
 
 const Collapse = (props) => {
-  const lang = useLang();
+  const t = useI18n();
   const [collapse, setCollapse] = useState(true);
 
   return (
@@ -18,7 +18,7 @@ const Collapse = (props) => {
           className={collapse ? styles['arrow-right'] : styles['arrow-down']}
         ></span>
         &nbsp;{' '}
-        {props.title || (lang === 'de' ? 'Typdeklaration' : 'Type declaration')}
+        {props.title || t('typeDeclaration')}
       </summary>
       {props.children}
     </details>

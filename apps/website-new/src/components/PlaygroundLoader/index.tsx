@@ -1,6 +1,6 @@
-import { useLang } from '@rspress/core/runtime';
 import { loadRemote } from '@module-federation/runtime';
 import React, { Suspense } from 'react';
+import { useI18n } from '../../../theme/i18n';
 import { NoSSR } from '../NoSSR';
 import styles from './index.module.scss';
 import type { PlaygroundProps } from '../../types/mf-playground';
@@ -47,12 +47,8 @@ function loadPlayground() {
 const Playground = React.lazy(loadPlayground);
 
 function Loading() {
-  const lang = useLang();
-  return (
-    <div className={styles.loading}>
-      {lang === 'de' ? 'Playground wird geladen …' : 'Loading Playground...'}
-    </div>
-  );
+  const t = useI18n();
+  return <div className={styles.loading}>{t('loadingPlayground')}</div>;
 }
 
 export function PlaygroundLoader() {
