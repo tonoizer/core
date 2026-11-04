@@ -46,5 +46,6 @@ export const PT_BR: Record<keyof typeof EN_US, string> = {
   playAnnouncementVideo: 'Reproduzir o vídeo do anúncio',
   typeDeclaration: 'Declaração de tipos',
   errorCodeLabel: 'Código de erro: ',
-  copyright: 'Equipe central do Module Federation. Todos os direitos reservados.',
+  copyright:
+    'Equipe central do Module Federation. Todos os direitos reservados.',
 };

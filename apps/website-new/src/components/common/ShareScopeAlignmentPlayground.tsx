@@ -176,9 +176,7 @@ export default function ShareScopeAlignmentPlayground() {
 
         {result.warnings.length > 0 ? (
           <div style={{ marginTop: 12 }}>
-            <div style={blockTitleStyle}>
-              {t('shareScopeWarnings')}
-            </div>
+            <div style={blockTitleStyle}>{t('shareScopeWarnings')}</div>
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {result.warnings.map((w: string) => (
                 <li key={w} style={{ color: 'var(--rp-c-text-2, #374151)' }}>
@@ -189,9 +187,7 @@ export default function ShareScopeAlignmentPlayground() {
           </div>
         ) : null}
 
-        <div style={blockTitleStyle}>
-          {t('shareScopeAlignment')}
-        </div>
+        <div style={blockTitleStyle}>{t('shareScopeAlignment')}</div>
         <pre
           style={{
             margin: 0,
@@ -213,9 +209,7 @@ export default function ShareScopeAlignmentPlayground() {
             : t('shareScopeNoAlignment')}
         </pre>
 
-        <div style={blockTitleStyle}>
-          {t('shareScopeInitialized')}
-        </div>
+        <div style={blockTitleStyle}>{t('shareScopeInitialized')}</div>
         <pre
           style={{
             margin: 0,
