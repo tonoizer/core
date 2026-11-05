@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLang } from '@rspress/core/runtime';
 import { useI18n } from '../../theme/i18n';
 import styles from './AnnouncementVideo.module.scss';
 
@@ -7,7 +6,6 @@ export default function AnnouncementVideo(props: {
   customWidthScale?: number;
 }) {
   const t = useI18n();
-  const isGerman = useLang() === 'de';
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<{ destroy: () => void } | null>(null);
   const [shouldLoad, setShouldLoad] = useState(false);
@@ -82,9 +80,7 @@ export default function AnnouncementVideo(props: {
       <div ref={containerRef} className={styles.player} />
       {!isReady && (
         <button
-          aria-label={
-            isGerman ? 'Ankündigungsvideo abspielen' : 'Play announcement video'
-          }
+          aria-label={t('playAnnouncementVideo')}
           className={styles.posterButton}
           onClick={loadPlayer}
           type="button"

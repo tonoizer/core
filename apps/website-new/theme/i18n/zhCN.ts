@@ -23,4 +23,28 @@ export const ZH_CN: Record<keyof typeof EN_US, string> = {
     'https://module-federation-assest.netlify.app/document/announcement/blog/announcement/announcement-video.mp4',
   announcementVideoPoster:
     'https://module-federation-assest.netlify.app/document/announcement/blog/announcement/announcement-video-poster.png',
+  hostShareScopeLabel: '宿主 Share Scope',
+  hostShareScopeType: '宿主 Share Scope 的类型',
+  shareScopeUnset: '未设置',
+  hostShareScopes: '宿主 Share Scope',
+  remoteShareScopeLabel: '远程 Share Scope',
+  remoteShareScopeType: '远程 Share Scope 的类型',
+  remoteShareScopes: '远程 Share Scope',
+  shareScopeWarnings: '警告',
+  shareScopeAlignment: '对齐（伪代码）',
+  shareScopeNoAlignment: '（无对齐）',
+  shareScopeInitialized: '已初始化的 Scope',
+  hostShareScopeEmpty: '宿主的 shareScope 是空数组。',
+  hostShareScopeSingleItem:
+    "宿主的 shareScope 是只包含一项的数组。除非你确实需要数组语义，否则请优先使用字符串（例如 'default'）。",
+  remoteShareScopeEmpty: '远程模块的 shareScope 是空数组。',
+  remoteShareScopeSingleItem:
+    "远程模块的 shareScope 是只包含一项的数组。除非你确实需要数组语义，否则请优先使用字符串（例如 'default'）。",
+  alignedViaShareScopeObject:
+    '通过传给 remoteEntry.init(...) 的 shareScope 对象完成对齐',
+  loadingPlayground: '正在加载 Playground…',
+  playAnnouncementVideo: '播放公告视频',
+  typeDeclaration: '类型声明',
+  errorCodeLabel: '错误代码：',
+  copyright: 'Module Federation 核心团队。保留所有权利。',
 };

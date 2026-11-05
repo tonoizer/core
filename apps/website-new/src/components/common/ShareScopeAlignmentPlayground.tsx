@@ -1,23 +1,30 @@
-import { useLang } from '@rspress/core/runtime';
 import React, { useMemo, useState } from 'react';
+import { useI18n } from '../../../theme/i18n';
 import { NoSSR } from '../NoSSR';
 import type { ShareScopeAlignmentItem } from './computeInitContainerShareScopeAlignment';
 import { computeInitContainerShareScopeAlignment } from './computeInitContainerShareScopeAlignment';
 
 type InputKind = 'unset' | 'string' | 'array';
 
-const GERMAN_MESSAGES: Record<string, string> = {
-  'Host shareScope is an empty array.':
-    'Der shareScope des Hosts ist ein leeres Array.',
+const SHARE_SCOPE_MESSAGE_KEYS = {
+  'Host shareScope is an empty array.': 'hostShareScopeEmpty',
   "Host shareScope is an array with a single item. Prefer a string (e.g. 'default') unless you intentionally need array semantics.":
-    "Der shareScope des Hosts ist ein Array mit einem einzigen Eintrag. Verwende vorzugsweise einen String (z. B. 'default'), sofern du nicht ausdrücklich die Array-Semantik benötigst.",
-  'Remote shareScope is an empty array.':
-    'Der shareScope des Remotes ist ein leeres Array.',
+    'hostShareScopeSingleItem',
+  'Remote shareScope is an empty array.': 'remoteShareScopeEmpty',
   "Remote shareScope is an array with a single item. Prefer a string (e.g. 'default') unless you intentionally need array semantics.":
-    "Der shareScope des Remotes ist ein Array mit einem einzigen Eintrag. Verwende vorzugsweise einen String (z. B. 'default'), sofern du nicht ausdrücklich die Array-Semantik benötigst.",
+    'remoteShareScopeSingleItem',
   'Aligned via the shareScope object passed to remoteEntry.init(...)':
-    'Abgleich über das shareScope-Objekt, das an remoteEntry.init(...) übergeben wird',
-};
+    'alignedViaShareScopeObject',
+} as const;
+
+type ShareScopeMessage = keyof typeof SHARE_SCOPE_MESSAGE_KEYS;
+
+function isShareScopeMessage(message: string): message is ShareScopeMessage {
+  return Object.prototype.hasOwnProperty.call(
+    SHARE_SCOPE_MESSAGE_KEYS,
+    message,
+  );
+}
 
 function parseStringArray(raw: string): string[] {
   if (!raw.trim()) return [];
@@ -40,9 +47,11 @@ function toShareScopeKey(
 }
 
 export default function ShareScopeAlignmentPlayground() {
-  const isGerman = useLang() === 'de';
+  const t = useI18n();
   const localize = (message: string) =>
-    isGerman ? GERMAN_MESSAGES[message] || message : message;
+    isShareScopeMessage(message)
+      ? t(SHARE_SCOPE_MESSAGE_KEYS[message])
+      : message;
   const [hostKind, setHostKind] = useState<InputKind>('array');
   const [hostRaw, setHostRaw] = useState('default,scope1');
 
@@ -114,30 +123,21 @@ export default function ShareScopeAlignmentPlayground() {
         <div style={rowStyle}>
           <div style={{ flex: '1 1 320px' }}>
             <div style={labelStyle}>
-              {isGerman ? 'Share Scope des Hosts' : 'HostShareScope'}{' '}
-              (remotes[remote].shareScope)
+              {t('hostShareScopeLabel')} (remotes[remote].shareScope)
             </div>
             <div style={rowStyle}>
               <select
-                aria-label={
-                  isGerman
-                    ? 'Typ des Host-Share-Scopes'
-                    : 'Host share scope type'
-                }
+                aria-label={t('hostShareScopeType')}
                 value={hostKind}
                 onChange={(e) => setHostKind(e.target.value as InputKind)}
                 style={selectStyle}
               >
-                <option value="unset">
-                  {isGerman ? 'nicht gesetzt' : 'unset'}
-                </option>
+                <option value="unset">{t('shareScopeUnset')}</option>
                 <option value="string">string</option>
                 <option value="array">array</option>
               </select>
               <input
-                aria-label={
-                  isGerman ? 'Host-Share-Scopes' : 'Host share scopes'
-                }
+                aria-label={t('hostShareScopes')}
                 value={hostRaw}
                 onChange={(e) => setHostRaw(e.target.value)}
                 placeholder="default,scope1"
@@ -149,30 +149,21 @@ export default function ShareScopeAlignmentPlayground() {
 
           <div style={{ flex: '1 1 320px' }}>
             <div style={labelStyle}>
-              {isGerman ? 'Share Scope des Remotes' : 'RemoteShareScope'}{' '}
-              (shareScope)
+              {t('remoteShareScopeLabel')} (shareScope)
             </div>
             <div style={rowStyle}>
               <select
-                aria-label={
-                  isGerman
-                    ? 'Typ des Remote-Share-Scopes'
-                    : 'Remote share scope type'
-                }
+                aria-label={t('remoteShareScopeType')}
                 value={remoteKind}
                 onChange={(e) => setRemoteKind(e.target.value as InputKind)}
                 style={selectStyle}
               >
-                <option value="unset">
-                  {isGerman ? 'nicht gesetzt' : 'unset'}
-                </option>
+                <option value="unset">{t('shareScopeUnset')}</option>
                 <option value="string">string</option>
                 <option value="array">array</option>
               </select>
               <input
-                aria-label={
-                  isGerman ? 'Remote-Share-Scopes' : 'Remote share scopes'
-                }
+                aria-label={t('remoteShareScopes')}
                 value={remoteRaw}
                 onChange={(e) => setRemoteRaw(e.target.value)}
                 placeholder="default"
@@ -185,9 +176,7 @@ export default function ShareScopeAlignmentPlayground() {
 
         {result.warnings.length > 0 ? (
           <div style={{ marginTop: 12 }}>
-            <div style={blockTitleStyle}>
-              {isGerman ? 'Warnungen' : 'Warnings'}
-            </div>
+            <div style={blockTitleStyle}>{t('shareScopeWarnings')}</div>
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {result.warnings.map((w: string) => (
                 <li key={w} style={{ color: 'var(--rp-c-text-2, #374151)' }}>
@@ -198,9 +187,7 @@ export default function ShareScopeAlignmentPlayground() {
           </div>
         ) : null}
 
-        <div style={blockTitleStyle}>
-          {isGerman ? 'Abgleich (Pseudocode)' : 'Alignment (pseudo code)'}
-        </div>
+        <div style={blockTitleStyle}>{t('shareScopeAlignment')}</div>
         <pre
           style={{
             margin: 0,
@@ -219,14 +206,10 @@ export default function ShareScopeAlignmentPlayground() {
                   return a.expression;
                 })
                 .join('\n')
-            : isGerman
-              ? '(kein Abgleich)'
-              : '(no alignment)'}
+            : t('shareScopeNoAlignment')}
         </pre>
 
-        <div style={blockTitleStyle}>
-          {isGerman ? 'Initialisierte Scopes' : 'Initialized Scopes'}
-        </div>
+        <div style={blockTitleStyle}>{t('shareScopeInitialized')}</div>
         <pre
           style={{
             margin: 0,
